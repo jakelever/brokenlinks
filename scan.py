@@ -46,35 +46,20 @@ if __name__ == '__main__':
 			done.add(url)
 			html = getHTML(url)
 			
-
 			# Not an HTML file
 			if html == False:
 				continue
 
 			print(url)
 
-			#for link in re.finditer('<a(?P<attributes>.*?)>(?P<text>.*?)</a>',html):
 			for link in re.finditer('<a.*?href="(?P<url>.*?)".*?>(?P<text>.*?)</a>',html):
 				text = link.groupdict()['text']
 				linkURL = link.groupdict()['url']
 
-				#attributes = {}
-				#for attribute in re.finditer('(?P<name>\w+)="(?P<value>.*?)"',link.groupdict()['attributes']):
-				#	attributes[attribute.groupdict()['name']] = attribute.groupdict()['value']
-
-				#if 'href' in attributes:
-					#linkURL = attributes['href']
 				if linkURL.startswith('mailto:'):
 					continue
 
-
-				#isAbsoluteURL = '://' in linkURL
-				#if not isAbsoluteURL:
-				# Let's get the absolute URL
 				linkURL = urljoin(url,linkURL)
-
-				#if linkURL[-1] == '/':
-				#	linkURL = linkURL[:-1]
 
 				if '#' in linkURL:
 					location = linkURL.index('#')
@@ -95,14 +80,9 @@ if __name__ == '__main__':
 				if linkURL.startswith(filterURL) and not linkURL in done and not linkURL in toScan:
 					toScan.append(linkURL)
 
-				#if 'id' in attributes:
-				#	foundAnchors[url].add(attributes['id'])
-
 			for ids in re.finditer('\W(name|id)="(?P<id>.*?)"',html):
 				anchorID = ids.groupdict()['id']
-				#print(url, anchorID)
 				foundAnchors[url].add(anchorID)
-				#print("FOUND\t%s\t%s" % (url, anchorID))
 
 		for url,anchors in expectedAnchors.items():
 			for anchor in sorted(list(anchors)):
