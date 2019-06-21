@@ -18,6 +18,8 @@ python scan.py --url http://swcarpentry.github.io/shell-novice --ghpages --log b
                    as well
   --log LOG        Log file to output scan
   --all            Log all links, not just the links that fail
-  --ghpages        Deal with the fact that github-pages does not require
-                   ignore .html at end of URLs
+  --images         Check images as well as links
+  --ghpages        Tidy up output for a GitHub pages site. Deal with the fact
+                   that github-pages does not require ignore .html at end of
+                   URLs
 ```

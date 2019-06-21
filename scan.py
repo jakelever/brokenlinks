@@ -35,6 +35,7 @@ if __name__ == '__main__':
 	parser.add_argument('--filter',required=False,type=str,help='Alternative filter to use on URLs on whether to scan them as well')
 	parser.add_argument('--log',required=True,type=str,help='Log file to output scan')
 	parser.add_argument('--all', action='store_true',help='Log all links, not just the links that fail')
+	parser.add_argument('--images', action='store_true',help='Check images as well as links')
 	parser.add_argument('--ghpages', action='store_true',help='Tidy up output for a GitHub pages site. Deal with the fact that github-pages does not require ignore .html at end of URLs')
 	args = parser.parse_args()
 
@@ -69,7 +70,6 @@ if __name__ == '__main__':
 			anchorID = ids.groupdict()['id']
 			foundAnchors[sourceURL].add(anchorID)
 
-		#if sourceURL.startswith(filterURL) or sourceURL == args.url:
 		for link in re.finditer('<a.*?href="(?P<url>.*?)".*?>(?P<text>.*?)</a>',html):
 			text = link.groupdict()['text']
 			linkURL = link.groupdict()['url']
@@ -78,7 +78,6 @@ if __name__ == '__main__':
 				continue
 
 			linkURL = urljoin(checkedURLs[sourceURL],linkURL)
-			#print('DEBUG', sourceURL, linkURL)
 
 			anchor = None
 			if '#' in linkURL:
@@ -93,6 +92,15 @@ if __name__ == '__main__':
 			if linkURL.startswith(filterURL):
 				if not linkURL in done and not linkURL in toScan:
 					toScan.append(linkURL)
+
+		if args.images:
+			for image in re.finditer('<img.*?src="(?P<url>.*?)".*?>',html):
+				imageURL = image.groupdict()['url']
+				imageURL = urljoin(checkedURLs[sourceURL],imageURL)
+
+				if not imageURL in checkedURLs:
+					checkedURLs[imageURL] = checkURL(imageURL)
+				links[sourceURL].append( (imageURL, None) )
 
 	output = set()
 	for sourceURL in links.keys():
