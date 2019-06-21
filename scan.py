@@ -18,7 +18,7 @@ def checkURL(url):
 def getHTML(url):
 	headers = {'User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.111 Safari/537.36'}
 	r = requests.get(url,headers=headers)
-	if "text/html" in r.headers["content-type"]:
+	if "text/html" in r.headers["content-type"] and r.status_code == 200:
 		return r.text
 	else:
 		return False
@@ -35,7 +35,7 @@ if __name__ == '__main__':
 	parser.add_argument('--filter',required=False,type=str,help='Alternative filter to use on URLs on whether to scan them as well')
 	parser.add_argument('--log',required=True,type=str,help='Log file to output scan')
 	parser.add_argument('--all', action='store_true',help='Log all links, not just the links that fail')
-	parser.add_argument('--ghpages', action='store_true',help='Deal with the fact  that github-pages does not require ignore .html at end of URLs')
+	parser.add_argument('--ghpages', action='store_true',help='Tidy up output for a GitHub pages site. Deal with the fact that github-pages does not require ignore .html at end of URLs')
 	args = parser.parse_args()
 
 	toScan = [args.url]
@@ -78,6 +78,7 @@ if __name__ == '__main__':
 				continue
 
 			linkURL = urljoin(checkedURLs[sourceURL],linkURL)
+			#print('DEBUG', sourceURL, linkURL)
 
 			anchor = None
 			if '#' in linkURL:
@@ -93,7 +94,6 @@ if __name__ == '__main__':
 				if not linkURL in done and not linkURL in toScan:
 					toScan.append(linkURL)
 
-
 	output = set()
 	for sourceURL in links.keys():
 		for linkURL,anchor in links[sourceURL]:
@@ -104,10 +104,10 @@ if __name__ == '__main__':
 				exists = anchor in foundAnchors[linkURL]
 				output.add((sourceURL,linkURL,'#'+anchor,exists))
 
-	output = [ (trimRight(sourceURL,'/'),trimRight(linkURL,'/'),anchor,exists) for sourceURL,linkURL,anchor,exists in output ]
+	output = [ (checkedURLs[sourceURL],(checkedURLs[linkURL] if checkedURLs[linkURL] else linkURL),anchor,exists) for sourceURL,linkURL,anchor,exists in output ]
 
 	if args.ghpages:
-		output = [ (trimRight(sourceURL,'/index.html'),trimRight(linkURL,'/index.html'),anchor,exists) for sourceURL,linkURL,anchor,exists in output ]
+		output = [ (trimRight(sourceURL,'index.html'),trimRight(linkURL,'index.html'),anchor,exists) for sourceURL,linkURL,anchor,exists in output ]
 		output = [ (trimRight(sourceURL,'.html'),trimRight(linkURL,'.html'),anchor,exists) for sourceURL,linkURL,anchor,exists in output ]
 
 	output = sorted(list(set(output)))
