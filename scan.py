@@ -64,7 +64,7 @@ if __name__ == '__main__':
 		if html == False:
 			continue
 
-		print(sourceURL)
+		print("Scanning %s" % sourceURL)
 
 		for ids in re.finditer('\W(name|id)="(?P<id>.*?)"',html):
 			anchorID = ids.groupdict()['id']
