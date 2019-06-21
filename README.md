@@ -4,6 +4,8 @@ This is a small Python3 tool for scanning a website and looking for broken links
 
 ## Example Usage
 
+Below is a command that will scan all linked pages from that URL that also include that URL. It deals with some Github-Pages idiosyyncracies and then logs all the broken links to a file.
+
 ```
 python scan.py --url http://swcarpentry.github.io/shell-novice --ghpages --log broken.log
 ```
