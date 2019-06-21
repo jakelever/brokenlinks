@@ -4,30 +4,41 @@ import re
 from urllib.parse import urljoin
 from collections import defaultdict
 
-def urlWorks(url):
+def checkURL(url):
 	try:
-		r = requests.get(url)
-		return r.url, r.status_code == 200
+		headers = {'User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.111 Safari/537.36'}
+		r = requests.get(url,headers=headers)
+		if r.status_code == 200:
+			return r.url
+		else:
+			return False
 	except:
-		return False, False
+		return False
 
 def getHTML(url):
-	r = requests.get(url)
+	headers = {'User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.111 Safari/537.36'}
+	r = requests.get(url,headers=headers)
 	if "text/html" in r.headers["content-type"]:
 		return r.text
 	else:
 		return False
+
+def trimRight(s,toTrim):
+	if s.endswith(toTrim):
+		return s[:-len(toTrim)]
+	else:
+	 	return s
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser('Find broken links on a website given a URL')
 	parser.add_argument('--url',required=True,type=str,help='URL to start from')
 	parser.add_argument('--filter',required=False,type=str,help='Alternative filter to use on URLs on whether to scan them as well')
 	parser.add_argument('--log',required=True,type=str,help='Log file to output scan')
+	parser.add_argument('--all', action='store_true',help='Log all links, not just the links that fail')
+	parser.add_argument('--ghpages', action='store_true',help='Deal with the fact  that github-pages does not require ignore .html at end of URLs')
 	args = parser.parse_args()
 
-	firstURL, firstURLExists = urlWorks(args.url)
-	assert firstURLExists
-	toScan = [firstURL]
+	toScan = [args.url]
 	done = set()
 
 	if args.filter:
@@ -35,56 +46,74 @@ if __name__ == '__main__':
 	else:
 		filterURL = args.url
 
-	urlStatus = {}
-	
-	with open(args.log,'w') as outF:
-		expectedAnchors = defaultdict(set)
-		foundAnchors = defaultdict(set)
+	checkedURLs = {}
+	checkedURLs[args.url] = checkURL(args.url)
+	assert checkedURLs[args.url]
 
-		while len(toScan) > 0:
-			url = toScan.pop(0)
-			done.add(url)
-			html = getHTML(url)
-			
-			# Not an HTML file
-			if html == False:
+	log = {}
+	links = defaultdict(list)
+	foundAnchors = defaultdict(set)
+
+	while len(toScan) > 0:
+		sourceURL = toScan.pop(0)
+		done.add(sourceURL)
+		html = getHTML(sourceURL)
+		
+		# Not an HTML file
+		if html == False:
+			continue
+
+		print(sourceURL)
+
+		for ids in re.finditer('\W(name|id)="(?P<id>.*?)"',html):
+			anchorID = ids.groupdict()['id']
+			foundAnchors[sourceURL].add(anchorID)
+
+		#if sourceURL.startswith(filterURL) or sourceURL == args.url:
+		for link in re.finditer('<a.*?href="(?P<url>.*?)".*?>(?P<text>.*?)</a>',html):
+			text = link.groupdict()['text']
+			linkURL = link.groupdict()['url']
+
+			if linkURL.startswith('mailto:'):
 				continue
 
-			print(url)
+			linkURL = urljoin(checkedURLs[sourceURL],linkURL)
 
-			for link in re.finditer('<a.*?href="(?P<url>.*?)".*?>(?P<text>.*?)</a>',html):
-				text = link.groupdict()['text']
-				linkURL = link.groupdict()['url']
+			anchor = None
+			if '#' in linkURL:
+				location = linkURL.index('#')
+				anchor = linkURL[(location+1):]
+				linkURL = linkURL[:location]
+			
+			if not linkURL in checkedURLs:
+				checkedURLs[linkURL] = checkURL(linkURL)
 
-				if linkURL.startswith('mailto:'):
-					continue
-
-				linkURL = urljoin(url,linkURL)
-
-				if '#' in linkURL:
-					location = linkURL.index('#')
-					anchor = linkURL[(location+1):]
-					linkURL = linkURL[:location]
-					if linkURL.startswith(filterURL):
-						expectedAnchors[linkURL].add(anchor)
-
-				#print(linkURL)
-				if not linkURL in urlStatus:
-					urlStatus[linkURL] = urlWorks(linkURL)
-				replaceURL, exists = urlStatus[linkURL]
-				if exists:
-					linkURL = replaceURL
-
-				outF.write("LINK\t%s\t%s\t%s\n" % (url, linkURL, str(exists)))
-
-				if linkURL.startswith(filterURL) and not linkURL in done and not linkURL in toScan:
+			links[sourceURL].append( (linkURL, anchor) )
+			if linkURL.startswith(filterURL):
+				if not linkURL in done and not linkURL in toScan:
 					toScan.append(linkURL)
 
-			for ids in re.finditer('\W(name|id)="(?P<id>.*?)"',html):
-				anchorID = ids.groupdict()['id']
-				foundAnchors[url].add(anchorID)
 
-		for url,anchors in expectedAnchors.items():
-			for anchor in sorted(list(anchors)):
-				found = anchor in foundAnchors[url]
-				outF.write("ANCHOR\t%s\t%s\t%s\n" % (url,anchor,str(found)))
+	output = set()
+	for sourceURL in links.keys():
+		for linkURL,anchor in links[sourceURL]:
+			if anchor is None or not linkURL.startswith(filterURL):
+				exists = bool(checkedURLs[linkURL])
+				output.add((sourceURL,linkURL,'',exists))
+			else:
+				exists = anchor in foundAnchors[linkURL]
+				output.add((sourceURL,linkURL,'#'+anchor,exists))
+
+	output = [ (trimRight(sourceURL,'/'),trimRight(linkURL,'/'),anchor,exists) for sourceURL,linkURL,anchor,exists in output ]
+
+	if args.ghpages:
+		output = [ (trimRight(sourceURL,'/index.html'),trimRight(linkURL,'/index.html'),anchor,exists) for sourceURL,linkURL,anchor,exists in output ]
+		output = [ (trimRight(sourceURL,'.html'),trimRight(linkURL,'.html'),anchor,exists) for sourceURL,linkURL,anchor,exists in output ]
+
+	output = sorted(list(set(output)))
+
+	with open(args.log,'w') as outF:
+		for sourceURL,linkURL,anchor,exists in output:
+			if args.all or not exists:
+				outF.write("%s\t%s%s\t%s\n" % (sourceURL,linkURL,anchor,str(exists)))
+
