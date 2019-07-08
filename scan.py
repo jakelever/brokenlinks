@@ -89,7 +89,7 @@ if __name__ == '__main__':
 				checkedURLs[linkURL] = checkURL(linkURL)
 
 			links[sourceURL].append( (linkURL, anchor) )
-			if linkURL.startswith(filterURL):
+			if filterURL in linkURL:
 				if not linkURL in done and not linkURL in toScan:
 					toScan.append(linkURL)
 
@@ -105,7 +105,7 @@ if __name__ == '__main__':
 	output = set()
 	for sourceURL in links.keys():
 		for linkURL,anchor in links[sourceURL]:
-			if anchor is None or not linkURL.startswith(filterURL):
+			if anchor is None or not filterURL in linkURL:
 				exists = bool(checkedURLs[linkURL])
 				output.add((sourceURL,linkURL,'',exists))
 			else:
